@@ -5,7 +5,7 @@ permissions:
 
 on:
   schedule:
-    - cron: "0 0 * * *" # every day
+    - cron: "0 19 * * *" # 北京时间凌晨3点 (UTC 19:00)
   workflow_dispatch:
 
 jobs:
@@ -18,6 +18,8 @@ jobs:
       # Step 1: run a standard checkout action
       - name: Checkout target repo
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       # Step 2: run the sync action
       - name: Sync upstream changes
@@ -31,6 +33,36 @@ jobs:
 
           # Set test_mode true to run tests instead of the true action!!
           test_mode: false
+
+      # Step 3: 自动修改 wrangler.toml 中的 name 字段
+      - name: Customize wrangler.toml
+        if: steps.sync.outputs.has_new_commits == 'true'
+        run: |
+          # 检查 wrangler.toml 是否存在
+          if [ -f "wrangler.toml" ]; then
+            # 使用 sed 替换 name 字段，支持任意原始值
+            sed -i 's/^name = ".*"/name = "mysok"/' wrangler.toml
+            echo "✅ wrangler.toml 中的 name 已修改为 mysok"
+          else
+            echo "⚠️ wrangler.toml 文件不存在，跳过修改"
+          fi
+
+      # Step 4: 提交修改
+      - name: Commit customization
+        if: steps.sync.outputs.has_new_commits == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # 检查是否有修改
+          if git diff --quiet wrangler.toml; then
+            echo "📝 wrangler.toml 没有变化，无需提交"
+          else
+            git add wrangler.toml
+            git commit -m "chore: 自动修改 wrangler.toml name 为 mysok"
+            git push
+            echo "✅ 已提交并推送 wrangler.toml 的修改"
+          fi
 
       - name: Sync check
         if: failure()
