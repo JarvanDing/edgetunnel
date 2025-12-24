@@ -34,15 +34,24 @@ jobs:
           # Set test_mode true to run tests instead of the true action!!
           test_mode: false
 
-      # Step 3: 自动修改 wrangler.toml 中的 name 字段
+      # Step 3: 自动修改 wrangler.toml 中的 name 和 KV 配置
       - name: Customize wrangler.toml
         if: steps.sync.outputs.has_new_commits == 'true'
         run: |
           # 检查 wrangler.toml 是否存在
           if [ -f "wrangler.toml" ]; then
-            # 使用 sed 替换 name 字段，支持任意原始值
+            # 1. 修改 name 字段
             sed -i 's/^name = ".*"/name = "mysok"/' wrangler.toml
             echo "✅ wrangler.toml 中的 name 已修改为 mysok"
+            
+            # 2. 取消注释并配置 KV
+            # 删除 #[[kv_namespaces]] 行的注释
+            sed -i 's/^#\[\[kv_namespaces\]\]/[[kv_namespaces]]/' wrangler.toml
+            # 删除 binding 行的注释并保持原值
+            sed -i 's/^#binding = "KV"/binding = "KV"/' wrangler.toml
+            # 删除 id 行的注释并填入 KV ID
+            sed -i 's/^#id = ""/id = "5419b46bc4b24de4a31b024daa22d653"/' wrangler.toml
+            echo "✅ KV 命名空间已配置: binding=KV, id=5419b46bc4b24de4a31b024daa22d653"
           else
             echo "⚠️ wrangler.toml 文件不存在，跳过修改"
           fi
